@@ -1,0 +1,133 @@
+options {
+    STATIC = false;
+    DEBUG_PARSER = false;
+    DEBUG_TOKEN_MANAGER = false;
+    JAVA_UNICODE_ESCAPE = false;
+    UNICODE_INPUT = true;
+    JDK_VERSION = "1.8";
+}
+
+PARSER_BEGIN(BlingVoidParser)
+
+package com.cloudability.bling.parser;
+
+import java.io.BufferedReader;
+import java.io.StringReader;
+
+public class BlingVoidParser {
+
+    public BlingVoidParser(String text) {
+      this(new BufferedReader(new StringReader(text)));
+    }
+
+    public void parse() {
+      try {
+        this.Expression();
+      } catch (ParseException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+}
+
+PARSER_END(BlingVoidParser)
+
+
+/* ***********************************  LEXICAL GRAMMAR STARTS HERE  *********************************** */
+
+<*> SKIP : {
+  " " | "\t" | "\n" | "\r"
+}
+
+TOKEN :
+{
+    < PLUS    : "+" >
+  | < MINUS   : "-" >
+  | < STAR    : "*" >
+  | < SLASH   : "/" >
+  | < CARAT   : "^" >
+
+  | < LPAREN  : "(" >
+  | < RPAREN  : ")" >
+
+  | < NUMBER :
+      (["0"-"9"])+
+      (
+        "."
+        (["0"-"9"])+
+      )?
+      (
+        ["e","E"]
+        (["+","-"])?
+        (["0"-"9"])+
+      )?
+    >
+}
+
+/* **********************************  SYNTACTIC GRAMMAR STARTS HERE  ********************************** */
+
+
+void Expression():
+{}
+{
+  AdditiveExpression()
+  <EOF> // end-of-file is a special token generated when the tokenizer has no more bytes to consume
+}
+
+void AdditiveExpression():
+{}
+{
+  MultiplicativeExpression()
+  (
+    ( <PLUS> | <MINUS> )
+    MultiplicativeExpression()
+  )*
+}
+
+void MultiplicativeExpression():
+{}
+{
+  ExponentialExpression()
+  (
+    ( <STAR> | <SLASH> )
+    ExponentialExpression()
+  )*
+}
+
+void ExponentialExpression():
+{}
+{
+  NegatableExpression()
+  (
+    <CARAT>
+    NegatableExpression()
+  )*
+}
+
+void NegatableExpression():
+{}
+{
+  ( <MINUS> )?
+  PrimeExpression()
+}
+
+void PrimeExpression():
+{}
+{
+  ( NumberLiteral() | GroupedExpression() )
+}
+
+void NumberLiteral():
+{}
+{
+  <NUMBER>
+}
+
+void GroupedExpression():
+{}
+{
+  <LPAREN>
+  AdditiveExpression()
+  <RPAREN>
+}
+

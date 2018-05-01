@@ -1,0 +1,197 @@
+options {
+    STATIC = false;
+    DEBUG_PARSER = false;
+    DEBUG_TOKEN_MANAGER = false;
+    JAVA_UNICODE_ESCAPE = false;
+    UNICODE_INPUT = true;
+    JDK_VERSION = "1.8";
+}
+
+PARSER_BEGIN(BlingParser)
+
+package com.cloudability.bling.parser;
+
+import java.io.BufferedReader;
+import java.io.StringReader;
+
+import com.cloudability.bling.ast.*;
+
+public class BlingParser {
+
+    public BlingParser(String text) {
+      this(new BufferedReader(new StringReader(text)));
+    }
+
+    public Expression parse() {
+      Expression expression = null;
+      try {
+        expression = this.Expression();
+      } catch (ParseException e) {
+        throw new RuntimeException(e);
+      }
+      return expression;
+    }
+
+}
+
+PARSER_END(BlingParser)
+
+
+/* ***********************************  LEXICAL GRAMMAR STARTS HERE  *********************************** */
+
+<*> SKIP : {
+  " " | "\t" | "\n" | "\r"
+}
+
+
+TOKEN :
+{
+    < PLUS    : "+" >
+  | < MINUS   : "-" >
+  | < STAR    : "*" >
+  | < SLASH   : "/" >
+  | < CARAT   : "^" >
+
+  | < LPAREN  : "(" >
+  | < RPAREN  : ")" >
+
+  | < NUMBER :
+      (["0"-"9"])+
+      (
+        "."
+        (["0"-"9"])+
+      )?
+      (
+        ["e","E"]
+        (["+","-"])?
+        (["0"-"9"])+
+      )?
+    >
+}
+
+/* **********************************  SYNTACTIC GRAMMAR STARTS HERE  ********************************** */
+
+
+Expression Expression():
+{
+  Expression e = null;
+}
+{
+  e = AdditiveExpression()
+  <EOF> // end-of-file is a special token generated when the tokenizer has no more bytes to consume
+  { return e; }
+}
+
+Expression AdditiveExpression():
+{
+  Expression lhs = null;
+  Operator op = null;
+  Expression rhs = null;
+}
+{
+  lhs = MultiplicativeExpression()
+  (
+    (
+      <PLUS>
+      { op = Operator.PLUS; }
+      |
+      <MINUS>
+      { op = Operator.MINUS; }
+    )
+    rhs = MultiplicativeExpression()
+    { lhs = new BinaryExpression(lhs, op, rhs); }
+  )*
+  { return lhs; }
+}
+
+Expression MultiplicativeExpression():
+{
+  Expression lhs = null;
+  Operator op = null;
+  Expression rhs = null;
+}
+{
+  lhs = ExponentialExpression()
+  (
+    (
+      <STAR>
+      { op = Operator.MULTIPLY; }
+      |
+      <SLASH>
+      { op = Operator.DIVIDE; }
+    )
+    rhs = ExponentialExpression()
+    { lhs = new BinaryExpression(lhs, op, rhs); }
+  )*
+  { return lhs; }
+}
+
+Expression ExponentialExpression():
+{
+  Expression lhs = null;
+  Operator op = null;
+  Expression rhs = null;
+}
+{
+  lhs = NegatableExpression()
+  (
+    <CARAT>
+    { op = Operator.POWER; }
+    rhs = NegatableExpression()
+    { lhs = new BinaryExpression(lhs, op, rhs); }
+  )*
+  { return lhs; }
+}
+
+Expression NegatableExpression():
+{
+  Operator op = null;
+  Expression e = null;
+}
+{
+  (
+    <MINUS>
+    { op = Operator.MINUS; }
+  )?
+  e = PrimeExpression()
+  {
+    if (op == null) {
+      return e;
+    } else {
+      return new UnaryExpression(e, op);
+    }
+  }
+}
+
+Expression PrimeExpression():
+{
+  Expression e = null;
+}
+{
+  (
+    e = NumberLiteral()
+  | e = GroupedExpression()
+  )
+  { return e; }
+}
+
+Expression NumberLiteral():
+{
+  Token t = null;
+}
+{
+  t = <NUMBER>
+  { return new NumberLiteral(Double.parseDouble(t.image)); }
+}
+
+Expression GroupedExpression():
+{
+  Expression e = null;
+}
+{
+  <LPAREN>
+  e = AdditiveExpression()
+  <RPAREN>
+  { return e; }
+}
+
